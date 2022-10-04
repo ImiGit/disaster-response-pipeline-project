@@ -35,6 +35,7 @@ terms_and_conditions/**
 *.log
 *.sql
 *.sqlite
+*.db
 
 # OS generated files #
 ######################

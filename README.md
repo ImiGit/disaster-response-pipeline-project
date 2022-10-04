@@ -1,4 +1,7 @@
 # Disaster Response Pipeline Project
+by Iman Babaei
+date: 04.10.2022
+
 
 ### Instructions:
 1. Run the following commands in the project's root directory to set up your database and model.

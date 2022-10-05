@@ -1,23 +1,82 @@
 import sys
+import nltk
+nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
 
+import re
+import numpy as np
+import pandas as pd
+pd.set_option('display.max_columns', None)
+
+from sqlalchemy import create_engine
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+
+import warnings
+warnings.filterwarnings('ignore')
+
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+
+import pickle
 
 def load_data(database_filepath):
-    pass
+    engine = create_engine('sqlite:///disaster.db')
+    df = pd.read_sql_table('messages', engine)
+    
+    # As explained in the notebook, two columns need some attention.
+    # "child_alone" column is all zeros and I will drop it.
+    # there are 188 2s in "related" column. I will replace them with 1.
+    
+    df.drop("child_alone", axis=1, inplace=True)
+    df['related'] = df['related'].map(lambda x: 1 if x == 2 else x)
+    X = df.message
+    Y = df.iloc[:,4:]
+    return X, Y, Y.columns.values
 
 
 def tokenize(text):
-    pass
+    # As shown in the lectures, I will drop URLs and put "urlplaceholder" instead
+    url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    detected_urls = re.findall(url_regex, text)
+    for url in detected_urls:
+        text = text.replace(url, "urlplaceholder")
+
+    tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+
+    clean_tokens = []
+    for tok in tokens:
+        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+        clean_tokens.append(clean_tok)
+
+    return clean_tokens
 
 
 def build_model():
-    pass
+    pipeline = Pipeline([('vect', CountVectorizer(tokenizer=tokenize)),
+                     ('tfidf', TfidfTransformer()),
+                     ('clf', MultiOutputClassifier(RandomForestClassifier()))])
+    return pipeline
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
+    y_pred = model.predict(X_test)
+    for i in range(len(y_test.columns)):
+        print("\nFor \"{}\" we have the following values for precision, recall, f1-score: ".format(y_test.columns[i]))
+        print(classification_report(y_test.iloc[:,i], y_pred[:,i]).split()[-4:-1])
+        print("-----------------------------------------------------------------------------")
     pass
 
 
 def save_model(model, model_filepath):
+    pickle.dump(model, open(model_filepath, 'wb'))
     pass
 
 

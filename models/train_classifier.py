@@ -72,6 +72,10 @@ def build_model():
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
+    '''
+        This function as input receives already trained and fitted model, test data and category names.
+        It prints the Precision, Recall, and F1-Score for each category and also the overall value.
+    '''
     Y_pred = model.predict(X_test)
     precision = []
     recall = []

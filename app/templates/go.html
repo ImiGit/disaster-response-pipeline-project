@@ -8,7 +8,18 @@
 {% endblock %}
 
 {% block content %}
-    <h1 class="text-center">Result</h1>
+    <h1 class="text-center">Results</h1>
+<p class="text-center"> This message could belong to the following categories:</p>
+        <ul class="list-group">
+            {% for category, classification in classification_result.items() %}
+                {% if classification == 1 %}
+                    <li class="list-group-item list-group-item-success text-center">{{category.replace('_', ' ').title()}}</li>
+                {% else %}
+                    <li class="list-group-item list-group-item-dark text-center hidden">{{category.replace('_', ' ').title()}}</li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+<p class="text-center"> All the categories are shown here, result of the model are highlited in green.</p>
         <ul class="list-group">
             {% for category, classification in classification_result.items() %}
                 {% if classification == 1 %}
@@ -17,8 +28,5 @@
                     <li class="list-group-item list-group-item-dark text-center">{{category.replace('_', ' ').title()}}</li>
                 {% endif %}
             {% endfor %}
-
-        </div>
-    </div>
-
+        </ul>
 {% endblock %}

@@ -14,9 +14,7 @@ from nltk.stem import WordNetLemmatizer
 import warnings
 warnings.filterwarnings('ignore')
 
-from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.linear_model import SGDClassifier
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -27,7 +25,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 import pickle
 
 def load_data(database_filepath):
-    engine = create_engine('sqlite:///disaster.db')
+    engine = create_engine('sqlite:///{}'.format(database_filepath))
     df = pd.read_sql_table('messages', engine)
     
     # As explained in the notebook, two columns need some attention.
@@ -48,9 +46,11 @@ def tokenize(text):
     for url in detected_urls:
         text = text.replace(url, "urlplaceholder")
 
+    # Here first the text will be tokenized into words and then a lemmetizer will be initiated
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
+    # Each tokenized word is lemmatized, normalized, stripped, and added to the list of all clean tokens.
     clean_tokens = []
     for tok in tokens:
         clean_tok = lemmatizer.lemmatize(tok).lower().strip()
@@ -60,18 +60,33 @@ def tokenize(text):
 
 
 def build_model():
+    # After lots of trial with different classification algorithms, I found out the SGDClassifier()
+    # has the best performance, considering time, therefore instead of the randomforest that we saw in the class,
+    # I will use SGDClassifier() for my pipleline. "ML Pipeline Preparation.ipynb" can be referred for further details about
+    # how different algorithms and features in grid search have performed
+    
     pipeline = Pipeline([('vect', CountVectorizer(tokenizer=tokenize)),
-                     ('tfidf', TfidfTransformer()),
-                     ('clf', MultiOutputClassifier(RandomForestClassifier()))])
+                         ('tfidf', TfidfTransformer()),
+                         ('clf', MultiOutputClassifier(SGDClassifier()))])
     return pipeline
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    y_pred = model.predict(X_test)
-    for i in range(len(y_test.columns)):
-        print("\nFor \"{}\" we have the following values for precision, recall, f1-score: ".format(y_test.columns[i]))
-        print(classification_report(y_test.iloc[:,i], y_pred[:,i]).split()[-4:-1])
+    Y_pred = model.predict(X_test)
+    precision = []
+    recall = []
+    f1_score = []
+    for i, category in enumerate(category_names):
+        print("\nFor \"{}\" we have the following values for precision, recall, f1-score: ".format(category))
+        print(classification_report(Y_test[category], Y_pred[:,i]).split()[-4:-1])
         print("-----------------------------------------------------------------------------")
+        precision.append(float(classification_report(Y_test[category], Y_pred[:,i]).split()[-4]))
+        recall.append(float(classification_report(Y_test[category], Y_pred[:,i]).split()[-3]))
+        f1_score.append(float(classification_report(Y_test[category], Y_pred[:,i]).split()[-2]))
+    print("\n***************************************")
+    print("Overall precision is: {:.2f}, recall is: {:.2f}, and f1-score is: {:.2f}".format(np.array(precision).mean(),
+                                                                                            np.array(recall).mean(),
+                                                                                            np.array(f1_score).mean()))
     pass
 
 

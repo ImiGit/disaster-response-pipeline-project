@@ -1,40 +1,41 @@
 import sys
-import nltk
-nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger', 'stopwords'])
-
 import re
+import warnings
+import pickle
+import nltk
 import numpy as np
 import pandas as pd
-pd.set_option('display.max_columns', None)
+
 
 from sqlalchemy import create_engine
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 
-import warnings
-warnings.filterwarnings('ignore')
-
 from sklearn.linear_model import SGDClassifier
 from sklearn.multioutput import MultiOutputClassifier
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 
-import pickle
+nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger', 'stopwords'])
+warnings.filterwarnings('ignore')
+pd.set_option('display.max_columns', None)
 
 def load_data(database_filepath):
     '''
     This function loads the data from sqlite database file.
 
-    After the data is loaded into the dataframe, it is divided into X and Y dataframes to later be used in the machinelearning process.
-    Messages are stored in "X" and the allocated categories are stored in "Y". 
+    After the data is loaded into the dataframe, it is divided into X and Y dataframes to later
+    be used in the machinelearning process.
+    Messages are stored in "X" and the allocated categories are stored in "Y".
     The id, original message, and genre are not saved nor in X neither in Y, as they are not needed.
 
     Parameters:
-        database_filepath: This is the filepath to the messages csv file which contains the messages.
+        database_filepath: This is the filepath to messages.csv file which contains the messages.
 
     Returns:
         X: The text of the messages.
@@ -43,7 +44,7 @@ def load_data(database_filepath):
     '''
     engine = create_engine('sqlite:///{}'.format(database_filepath))
     df = pd.read_sql_table('messages', engine)
-    
+
     X = df.message
     Y = df.iloc[:,4:]
     return X, Y, Y.columns.values
@@ -53,7 +54,8 @@ def tokenize(text):
     '''
     This function tokenizes an input text.
 
-    First, urls are replaced by "urlplaceholder". Then, the text is tokenized into the words and english stop words are removed.
+    First, urls are replaced by "urlplaceholder". Then, the text is tokenized into the words
+    and english stop words are removed.
     Lastly, these words are lemmatized, normalized, stripped, and added to the list of clean tokens.
 
     Parameters:
@@ -82,23 +84,27 @@ def tokenize(text):
 
 def build_model():
     '''
-    This function builds a machine learning model using pipeline and tunes it with the help of gridsearch.
+    This function builds a machine learning model using pipeline and tunes it
+    with the help of gridsearch.
 
-    First a pipeline of CountVectorizer, TF-IDF transformer, and SGD Classifier is initiated. Then, some parameters are given to the 
-    grid search, so this pipeline is fine tuned to reach the best results. Finally, best estimator of this gridsearch is returned as
-    the output of the function.
+    First a pipeline of CountVectorizer, TF-IDF transformer, and SGD Classifier is initiated.
+    Then, some parameters are given to the grid search, so this pipeline will be fine tuned
+    to reach the best results.
+
+    After lots of trial with different classification algorithms, I found out the SGDClassifier()
+    has the best performance, considering time, therefore instead of the randomforest, that we saw
+    in the class, I will use SGDClassifier() for my pipleline. "ML Pipeline Preparation.ipynb" can
+    be referred for further details about how different algorithms and features in grid search have
+    performed.
 
     Parameters:
         no input parameters.
 
     Returns:
-        model: a tuned model and the best estimator of the Grid search results.
+        cv: a grid search pipeline model and to be trained later.
 
-    After lots of trial with different classification algorithms, I found out the SGDClassifier() has the best performance, 
-    considering time, therefore instead of the randomforest that we saw in the class, I will use SGDClassifier() for my pipleline. 
-    "ML Pipeline Preparation.ipynb" can be referred for further details about how different algorithms and features in grid search have performed
     '''
-    
+
     pipeline = Pipeline([('vect', CountVectorizer(tokenizer=tokenize)),
                          ('tfidf', TfidfTransformer()),
                          ('clf', MultiOutputClassifier(SGDClassifier()))])
@@ -114,21 +120,14 @@ def build_model():
         }
 
     cv = GridSearchCV(pipeline, param_grid=parameters, cv=3, verbose=2, n_jobs=-1)
-    cv.fit(X_train, y_train)
-    print("\nGridSearchCV started. It might take some time depending on your environment performance")
-    print("\n*******************************************")
-    print("\nBest Parameters:", cv.best_params_)
-    print("\n*******************************************")
 
-    model = cv.best_estimator_
-
-    return model
+    return cv
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
     '''
-        This function as input receives already trained and fitted model, test data and category names.
-        It prints the Precision, Recall, and F1-Score for each category and also the overall value.
+        This function as input receives trained and fitted model, test data and category names.
+        It prints the Precision, Recall, and F1-Score for each category and the overall values.
     '''
 
     Y_pred = model.predict(X_test)
@@ -146,8 +145,6 @@ def evaluate_model(model, X_test, Y_test, category_names):
     print("Overall precision is: {:.2f}, recall is: {:.2f}, and f1-score is: {:.2f}".format(np.array(precision).mean(),
                                                                                             np.array(recall).mean(),
                                                                                             np.array(f1_score).mean()))
-    pass
-
 
 def save_model(model, model_filepath):
     '''
@@ -158,16 +155,16 @@ def save_model(model, model_filepath):
         model_filepath: The filepath which the model will be saved to.
     '''
     pickle.dump(model, open(model_filepath, 'wb'))
-    pass
 
 
 def main():
     '''
     This is the main function. It does not have any input parameters.
 
-    First it checks if all the required arguments are given by the user on the system. It uses "database_filepath" to load the data and
-    then trains the model on it. After evaluating the model and printing its metrics, it saves the model into the "model_filepath" and 
-    prints the success message.
+    First it checks if all the required arguments are given by the user on the system.
+    It uses "database_filepath" to load the data and then trains the model on it.
+    After evaluating the model and printing its metrics, it saves the model into the 
+    "model_filepath" and prints the success message.
     If not all the inputs are provided, it informs the user.
     '''
     if len(sys.argv) == 3:
@@ -175,15 +172,21 @@ def main():
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
         X, Y, category_names = load_data(database_filepath)
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
-        
+
         print('Building model...')
         model = build_model()
-        
+
         print('Training model...')
+        print("\nGridSearchCV started.\
+            It might take some time depending on your environment performance")
         model.fit(X_train, Y_train)
-        
+
+        print("\n*******************************************")
+        print("\nBest Parameters:", model.best_params_)
+        print("\n*******************************************")
+
         print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+        evaluate_model(model.best_estimator_, X_test, Y_test, category_names)
 
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
         save_model(model, model_filepath)

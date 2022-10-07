@@ -4,12 +4,12 @@ from sqlalchemy import create_engine
 
 def load_data(messages_filepath, categories_filepath):
     '''
-    This function loads the data from two csv filepaths and merges them into 
+    This function loads the data from two csv filepaths and merges them into
     one pandas dataframe.
 
     Parameters:
-        messages_filepath: This is the filepath to the messages csv file which contains the messages.
-        categories_filepath: The filepath to the categories csv file which holds the category of each message.
+        messages_filepath: This is the filepath to the messages csv file which contains the messages
+        categories_filepath: filepath to categories csv file which holds category of each message
 
     Returns:
         panda's dataframe: The merged dataframe of the loaded data from two file pathes is returned.
@@ -24,12 +24,13 @@ def clean_data(df):
     '''
     This function cleans the input dataframe and returns it.
 
-    Categories are all saved in one column. So, first these categories are split and then only the their names are used
-    as columns names and their last digit values are used to make a binary table.
+    Categories are all saved in one column. So, first these categories are split and then
+    only the their names are used as columns names and their last digit values are used
+    to make a binary table.
     Duplicate values are droped.
     One column, "child_alone", is all zeros and will be dropped.
     There are 188 2s in "related" column. They will be replaced with 1.
-    
+
     Parameters:
         df: A panda's dataframe object which needs to be cleaned.
 
@@ -40,16 +41,16 @@ def clean_data(df):
     row = categories.iloc[1,:]
     category_colnames = [(lambda x: x[:-2])(x) for x in row]
     categories.columns = category_colnames
-    
+
     for column in categories:
         # set each value to be the last character of the string
         categories[column] = categories[column].str[-1:]
         # convert column from string to numeric
         categories[column] = categories[column].astype(int)
-    
+
     df.drop("categories", axis=1, inplace=True)
     df = pd.concat([df, categories], axis=1)
-    
+
     df.drop_duplicates(keep="first", inplace=True)
     df.drop("child_alone", axis=1, inplace=True)
     df['related'] = df['related'].map(lambda x: 1 if x == 2 else x)
@@ -71,18 +72,19 @@ def save_data(df, database_filename):
 
     engine = create_engine('sqlite:///{}'.format(database_filename))
     df.to_sql('messages', engine, index=False, if_exists='replace')
-    pass  
 
 
 def main():
     '''
     This is the main function.
 
-    First it checks if the input argument on the system is correct and messages and categories filepaths are given to load 
-    the data and database filepath is given to save the data later into a sqlite database.
+    First it checks if the input argument on the system is correct and messages and categories
+    filepaths are given to load the data and database filepath is given to save the data later
+    into a sqlite database.
 
-    If they are all given, it first loads the data, then cleans it, and finally saves it. Otherwise, it prints a message
-    informing the user that not all the needed arguments are provided correctly.
+    If they are all given, it first loads the data, then cleans it, and finally saves it.
+    Otherwise, it prints a message informing the user that not all the needed arguments are
+    provided correctly.
     '''
     if len(sys.argv) == 4:
 
@@ -94,12 +96,12 @@ def main():
 
         print('Cleaning data...')
         df = clean_data(df)
-        
+
         print('Saving data...\n    DATABASE: {}'.format(database_filepath))
         save_data(df, database_filepath)
-        
+
         print('Cleaned data saved to database!')
-    
+
     else:
         print('Please provide the filepaths of the messages and categories '\
               'datasets as the first and second argument respectively, as '\
